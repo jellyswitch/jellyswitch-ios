@@ -1,0 +1,3 @@
+github "SwiftyJSON/SwiftyJSON"
+github "turbolinks/turbolinks-ios"
+github "jonkykong/SideMenu" "master"
