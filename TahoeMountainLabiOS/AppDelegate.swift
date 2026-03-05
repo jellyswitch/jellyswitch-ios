@@ -12,27 +12,28 @@ import Turbolinks
 import UserNotifications
 
 @UIApplicationMain
-class AppDelegate: UIResponder, UIApplicationDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     var window: UIWindow?
-    
+
     // MARK: UIApplicationDelegate
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplicationLaunchOptionsKey: Any]?) -> Bool {
-        
-        /*let notificationTypes: UIUserNotificationType = [UIUserNotificationType.alert, UIUserNotificationType.badge, UIUserNotificationType.sound]
 
-        let pushNotificationSettings = UIUserNotificationSettings(types: notificationTypes, categories: nil)
-
-        application.registerUserNotificationSettings(pushNotificationSettings)
-        */
-        
         // Notifications
-        
         let center = UNUserNotificationCenter.current()
+        center.delegate = self
         center.requestAuthorization(options:[.badge, .alert, .sound]) { (granted, error) in
             // Enable or disable features based on authorization.
         }
         application.registerForRemoteNotifications()
-        
+
+        // Handle notification tap that launched the app
+        if let notification = launchOptions?[.remoteNotification] as? [String: Any],
+           let path = notification["path"] as? String {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                self.navigateToPath(path)
+            }
+        }
+
         return true
     }
     
@@ -45,16 +46,38 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         print(deviceTokenString)
     }
     
-    // Placeholder in case notifications registration fails
-    
     private func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        
+        print("Failed to register for remote notifications: \(error)")
     }
-    
-    // TODO: Investiation notifications handling
-    
-    // Placeholder for opening custom urls (must register custom scheme in the Info.plist file)
-    
+
+    // MARK: - UNUserNotificationCenterDelegate
+
+    // Called when a notification is tapped
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        let userInfo = response.notification.request.content.userInfo
+        if let path = userInfo["path"] as? String {
+            navigateToPath(path)
+        }
+        completionHandler()
+    }
+
+    // Called when a notification arrives while the app is in the foreground
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.alert, .sound, .badge])
+    }
+
+    // MARK: - Deep Link Navigation
+
+    private func navigateToPath(_ path: String) {
+        guard let applicationController = window?.rootViewController as? ApplicationController else { return }
+        let url = AppSettings.shared.baseUrl.appendingPathComponent(path)
+        applicationController.visit(url: url)
+    }
+
     func application(_ app: UIApplication, open url: URL, options: [UIApplicationOpenURLOptionsKey : Any] = [:]) -> Bool {
         return false
     }
